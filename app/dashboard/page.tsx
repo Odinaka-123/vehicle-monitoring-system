@@ -1,30 +1,28 @@
 import Layout from "@/app/components/Layout";
+import StatCard from "@/app/components/StatCard";
+import VehicleChart from "@/app/components/VehicleChart";
+import VehiclePie from "@/app/components/VehiclePie";
+
+import { Car, ShieldCheck, AlertTriangle, Ban } from "lucide-react";
 
 export default function Dashboard() {
   return (
     <Layout>
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-6 text-[#1E1F20]">Dashboard</h1>
 
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white p-5 shadow rounded">
-          <h2>Total Vehicles</h2>
-          <p className="text-2xl font-bold">120</p>
-        </div>
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <StatCard title="Total Vehicles" value="120" icon={<Car />} />
 
-        <div className="bg-white p-5 shadow rounded">
-          <h2>Vehicles Inside</h2>
-          <p className="text-2xl font-bold">45</p>
-        </div>
+        <StatCard title="Vehicles Inside" value="45" icon={<ShieldCheck />} />
 
-        <div className="bg-white p-5 shadow rounded">
-          <h2>Incidents Today</h2>
-          <p className="text-2xl font-bold">3</p>
-        </div>
+        <StatCard title="Incidents Today" value="3" icon={<AlertTriangle />} />
 
-        <div className="bg-white p-5 shadow rounded">
-          <h2>Access Denied</h2>
-          <p className="text-2xl font-bold">5</p>
-        </div>
+        <StatCard title="Access Denied" value="5" icon={<Ban />} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <VehicleChart />
+        <VehiclePie />
       </div>
     </Layout>
   );
