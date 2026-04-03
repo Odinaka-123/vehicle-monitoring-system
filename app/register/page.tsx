@@ -20,7 +20,7 @@ export default function RegisterVehicle() {
   const [type, setType] = useState(vehicleTypes[0]);
   const [color, setColor] = useState("");
 
-  const handleSubmit: React.FormEventHandler<HTMLFormElement> = (e) => {
+  const handleSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
 
     const vehicle = {
@@ -33,9 +33,16 @@ export default function RegisterVehicle() {
       status: "allowed",
     };
 
-    console.log(vehicle);
-    alert("Vehicle Registered (simulation)");
+    // ✅ Send data to backend API
+    await fetch("/api/vehicles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(vehicle),
+    });
 
+    alert("Vehicle Registered Successfully!");
+
+    // Reset form
     setOwner("");
     setPlate("");
     setDepartment("");
@@ -114,12 +121,7 @@ export default function RegisterVehicle() {
             <label className="block mb-1 font-medium text-gray-700">
               Vehicle Type <span className="text-red-500">*</span>
             </label>
-            <Listbox
-              value={type}
-              onChange={setType}
-              as="div"
-              className="relative"
-            >
+            <Listbox value={type} onChange={setType} as="div" className="relative">
               <Listbox.Button className="relative w-full cursor-pointer border border-gray-300 rounded-lg bg-white py-3 pl-3 pr-10 text-left focus:outline-none focus:ring-2 focus:ring-blue-400">
                 <span className="truncate text-gray-900 flex items-center">
                   {type.icon} {type.name}

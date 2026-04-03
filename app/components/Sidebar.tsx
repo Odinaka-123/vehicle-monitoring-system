@@ -16,7 +16,7 @@ export default function Sidebar() {
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { name: "Register Vehicle", icon: Car, path: "/register" },
-    { name: "Gate Access", icon: ShieldCheck, path: "/gate" },
+    { name: "Gate Access", icon: ShieldCheck, path: "/gate-access" },
     { name: "Access Logs", icon: FileText, path: "/logs" },
     { name: "Incidents", icon: AlertTriangle, path: "/incidents" },
     { name: "Admin", icon: Settings, path: "/admin" },
