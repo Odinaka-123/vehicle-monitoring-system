@@ -49,29 +49,40 @@ type Stat = {
   count: number;
 };
 
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      labels: { boxWidth: 12, font: { size: 11 } },
+    },
+  },
+  scales: {
+    x: { ticks: { font: { size: 10 }, maxRotation: 0 } },
+    y: { ticks: { font: { size: 10 } } },
+  },
+};
+
 export default function AdminPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [stats, setStats] = useState<Stat[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>("daily");
-  
 
-  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
 
-  // 🔥 LOAD DATA (NOW INCLUDES STATS)
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
   useEffect(() => {
     const loadData = async () => {
       try {
         const [inc, veh, stat] = await Promise.all([
           fetch("/api/incidents").then((r) => r.json()),
           fetch("/api/vehicles").then((r) => r.json()),
-          fetch(`/api/incidents/stats?range=${timeRange}`).then((r) =>
-            r.json(),
-          ),
+          fetch(`/api/incidents/stats?range=${timeRange}`).then((r) => r.json()),
         ]);
-
         setIncidents(inc);
         setVehicles(veh);
         setStats(stat);
@@ -79,16 +90,13 @@ export default function AdminPage() {
         console.error("Failed to load admin data:", err);
       }
     };
-
     loadData();
   }, [timeRange]);
 
-  // 🔢 METRICS
   const totalRegistered = incidents.length;
   const totalGranted = incidents.filter((i) => i.status === "granted").length;
   const totalDenied = incidents.filter((i) => i.status === "denied").length;
 
-  // 📊 BACKEND-DRIVEN CHART
   const chartData = {
     labels: stats.map((s) => s.label),
     datasets: [
@@ -104,97 +112,91 @@ export default function AdminPage() {
     ],
   };
 
-  // 🗑 DELETE VEHICLE
   const confirmDelete = async () => {
     if (!vehicleToDelete) return;
-
-    await fetch(`/api/vehicles/${vehicleToDelete.id}`, {
-      method: "DELETE",
-    });
-
-    setVehicles((prev) => prev.filter((v) => v.id !== vehicleToDelete.id));
-    setIsModalOpen(false);
-    setVehicleToDelete(null);
+    try {
+      await fetch(`/api/vehicles/${vehicleToDelete.id}`, { method: "DELETE" });
+      setVehicles((prev) => prev.filter((v) => v.id !== vehicleToDelete.id));
+    } catch (err) {
+      console.error("Delete failed:", err);
+    } finally {
+      setIsModalOpen(false);
+      setVehicleToDelete(null);
+    }
   };
 
-  // 🔄 UPDATE STATUS
   const changeStatus = async (plate_number: string, status: string) => {
-    await fetch("/api/vehicles/status", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plate_number, status }),
-    });
+    try {
+      await fetch("/api/vehicles/status", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plate_number, status }),
+      });
+      setVehicles((prev) =>
+        prev.map((v) => (v.plate_number === plate_number ? { ...v, status } : v)),
+      );
+    } catch (err) {
+      console.error("Status update failed:", err);
+    }
+  };
 
-    setVehicles((prev) =>
-      prev.map((v) => (v.plate_number === plate_number ? { ...v, status } : v)),
-    );
+  const handleReset = async () => {
+    try {
+      setIsResetting(true);
+      await fetch("/api/admin/reset", { method: "DELETE" });
+      setIncidents([]);
+      setVehicles([]);
+      setIsResetModalOpen(false);
+    } catch (err) {
+      console.error("Reset failed:", err);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const statusColor = (status: string) => {
+    if (status === "active") return "text-green-600 bg-green-50 border-green-200";
+    if (status === "blacklisted") return "text-red-600 bg-red-50 border-red-200";
+    return "text-slate-500 bg-slate-50 border-slate-200";
   };
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto px-4 py-8 text-slate-800">
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Admin Overview
-          </h1>
-          <p className="text-sm text-slate-500">
-            System metrics and registry management.
-          </p>
+      <div className="w-full max-w-6xl mx-auto px-4 py-6 sm:py-8 text-slate-800 overflow-x-hidden">
+
+        {/* Header */}
+        <header className="mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Admin Overview</h1>
+          <p className="text-sm text-slate-500">System metrics and registry management.</p>
         </header>
-        <div className="flex justify-end mb-6">
+
+        {/* Reset button */}
+        <div className="mb-5">
           <button
-            onClick={async () => {
-              const confirm = window.confirm(
-                "This will wipe ALL data. Continue?",
-              );
-              if (!confirm) return;
-
-              await fetch("/api/admin/reset", { method: "DELETE" });
-
-              setIncidents([]);
-              setVehicles([]);
-            }}
+            type="button"
+            onClick={() => setIsResetModalOpen(true)}
             className="text-xs font-bold uppercase px-4 py-2 rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition active:scale-95"
           >
             Reset System
           </button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-              Total Logs
-            </p>
-            <p className="text-3xl font-bold">{totalRegistered}</p>
-          </div>
-          <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">
-              Approved
-            </p>
-            <p className="text-3xl font-bold text-emerald-600">
-              {totalGranted}
-            </p>
-          </div>
-          <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-            <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">
-              Denied
-            </p>
-            <p className="text-3xl font-bold text-rose-600">{totalDenied}</p>
-          </div>
+        {/* ── Stat cards: 1 column on mobile, 3 on sm+ ── */}
+        <div className="flex flex-col gap-3 sm:grid sm:grid-cols-3 sm:gap-4 mb-6">
+          <StatCard label="Total Logs" value={totalRegistered} />
+          <StatCard label="Approved" value={totalGranted} green />
+          <StatCard label="Denied" value={totalDenied} red />
         </div>
 
-        {/* Chart */}
-        <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
-              Approval Trends
-            </h2>
+        {/* ── Chart ── */}
+        <div className="w-full bg-white border p-4 sm:p-6 rounded-2xl shadow-sm mb-6 overflow-hidden">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <h2 className="text-xs font-bold uppercase text-slate-500">Approval Trends</h2>
             <select
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value as TimeRange)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 outline-none font-medium text-slate-600 cursor-pointer hover:bg-slate-100 transition"
               aria-label="time range"
+              className="text-xs border rounded px-3 py-1.5 w-full sm:w-auto"
             >
               <option value="daily">Today</option>
               <option value="weekly">This Week</option>
@@ -202,69 +204,108 @@ export default function AdminPage() {
               <option value="yearly">This Year</option>
             </select>
           </div>
-
-          <div className="h-64">
-            <Line
-              data={chartData}
-              options={{
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                  x: {
-                    grid: { display: false },
-                    ticks: { font: { size: 10 } },
-                  },
-                  y: { ticks: { font: { size: 10 } } },
-                },
-              }}
-            />
+          <div className="relative w-full h-48 sm:h-64">
+            <Line data={chartData} options={chartOptions} />
           </div>
         </div>
 
-        {/* Vehicle Management */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/30">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
-              Registry Management
-            </h2>
+        {/* ── Registry ── */}
+        <div className="w-full bg-white border rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-4 border-b bg-slate-50">
+            <h2 className="text-xs font-bold uppercase text-slate-500">Registry Management</h2>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full table-auto border-collapse text-left">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Plate
-                  </th>
-                  <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Owner
-                  </th>
-                  <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Status Control
-                  </th>
-                  <th className="p-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">
-                    Actions
-                  </th>
+          {/* MOBILE: stacked cards, one per vehicle */}
+          <div className="flex flex-col gap-3 p-4 md:hidden">
+            {vehicles.map((v) => (
+              <div
+                key={v.id}
+                className="border rounded-xl p-4 bg-white shadow-sm flex flex-col gap-3"
+              >
+                {/* Top row: plate + remove */}
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
+                    {v.plate_number}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { setVehicleToDelete(v); setIsModalOpen(true); }}
+                    className="text-xs font-semibold text-rose-500 hover:text-rose-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                {/* Owner name */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-0.5">Owner</p>
+                  <p className="text-sm font-medium text-slate-700">{v.owner_name}</p>
+                </div>
+
+                {/* Vehicle info */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-0.5">Type</p>
+                    <p className="text-sm text-slate-600 capitalize">{v.vehicle_type}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-0.5">Color</p>
+                    <p className="text-sm text-slate-600 capitalize">{v.vehicle_color}</p>
+                  </div>
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-0.5">Phone</p>
+                  <p className="text-sm text-slate-600">{v.phone}</p>
+                </div>
+
+                {/* Status selector */}
+                <div className="flex items-center justify-between pt-1 border-t">
+                  <p className="text-[10px] uppercase tracking-wide text-slate-400">Status</p>
+                  <select
+                    aria-label="status"
+                    value={v.status}
+                    onChange={(e) => changeStatus(v.plate_number, e.target.value)}
+                    className={`text-xs font-medium rounded-full px-3 py-1 border ${statusColor(v.status)}`}
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="blacklisted">Blacklisted</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+
+            {vehicles.length === 0 && (
+              <p className="text-sm text-slate-400 text-center py-6">No vehicles registered.</p>
+            )}
+          </div>
+
+          {/* DESKTOP: table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="p-4 text-xs font-semibold text-slate-500">Plate</th>
+                  <th className="p-4 text-xs font-semibold text-slate-500">Owner</th>
+                  <th className="p-4 text-xs font-semibold text-slate-500">Type</th>
+                  <th className="p-4 text-xs font-semibold text-slate-500">Status</th>
+                  <th className="p-4 text-xs font-semibold text-slate-500"></th>
                 </tr>
               </thead>
-
-              <tbody className="divide-y divide-slate-50">
+              <tbody>
                 {vehicles.map((v) => (
-                  <tr key={v.id} className="hover:bg-slate-50/50">
-                    <td className="p-4 font-mono text-xs font-bold text-slate-700">
-                      {v.plate_number}
-                    </td>
-                    <td className="p-4 text-xs font-medium text-slate-600">
-                      {v.owner_name}
-                    </td>
+                  <tr key={v.id} className="border-b hover:bg-slate-50 transition">
+                    <td className="p-4 font-mono text-xs font-semibold">{v.plate_number}</td>
+                    <td className="p-4 text-xs">{v.owner_name}</td>
+                    <td className="p-4 text-xs capitalize">{v.vehicle_type}</td>
                     <td className="p-4">
                       <select
+                        aria-label="status"
                         value={v.status}
-                        onChange={(e) =>
-                          changeStatus(v.plate_number, e.target.value)
-                        }
-                        aria-label="status change"
-                        className="text-[10px] font-bold uppercase bg-slate-100 rounded px-2 py-1 text-slate-600"
+                        onChange={(e) => changeStatus(v.plate_number, e.target.value)}
+                        className="text-xs bg-slate-100 rounded px-2 py-1"
                       >
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
@@ -273,11 +314,9 @@ export default function AdminPage() {
                     </td>
                     <td className="p-4 text-right">
                       <button
-                        onClick={() => {
-                          setVehicleToDelete(v);
-                          setIsModalOpen(true);
-                        }}
-                        className="text-[10px] font-bold text-rose-400 hover:text-rose-600"
+                        type="button"
+                        onClick={() => { setVehicleToDelete(v); setIsModalOpen(true); }}
+                        className="text-xs text-rose-500 hover:text-rose-700"
                       >
                         Remove
                       </button>
@@ -289,64 +328,91 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Modal */}
+        {/* Delete Modal */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Animated Backdrop */}
-            <div
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-              onClick={() => setIsModalOpen(false)}
-            />
-
-            {/* Modal Card */}
-            <div className="relative bg-white rounded-2xl shadow-2xl shadow-slate-200/50 w-full max-w-sm overflow-hidden transform transition-all border border-slate-100">
-              <div className="p-6">
-                <div className="flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-rose-50">
-                  <svg
-                    className="w-6 h-6 text-rose-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
-                </div>
-
-                <h3 className="text-lg font-bold text-slate-900 mb-1">
-                  Delete Vehicle
-                </h3>
-                <p className="text-sm text-slate-500 leading-relaxed">
-                  Are you sure you want to delete{" "}
-                  <span className="font-mono font-bold text-slate-700 bg-slate-100 px-1 rounded">
-                    {vehicleToDelete?.plate_number}
-                  </span>
-                  ? This action cannot be undone.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 p-4 bg-slate-50 border-t border-slate-100">
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmDelete}
-                  className="flex-1 px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold rounded-xl transition-all shadow-sm shadow-rose-200 active:scale-[0.98]"
-                >
-                  Delete Vehicle
-                </button>
-              </div>
+          <Modal>
+            <h3 className="text-base font-bold mb-1">Delete Vehicle</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Remove <span className="font-mono font-semibold text-slate-700">{vehicleToDelete?.plate_number}</span> from the registry?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="flex-1 text-sm px-3 py-2 rounded-lg border hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 text-sm px-3 py-2 rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition"
+              >
+                Delete
+              </button>
             </div>
-          </div>
+          </Modal>
+        )}
+
+        {/* Reset Modal */}
+        {isResetModalOpen && (
+          <Modal>
+            <h3 className="text-base font-bold mb-1 text-rose-600">Reset System</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              This permanently deletes all vehicles and logs. This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                disabled={isResetting}
+                onClick={() => setIsResetModalOpen(false)}
+                className="flex-1 text-sm px-3 py-2 rounded-lg border disabled:opacity-50 hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={isResetting}
+                onClick={handleReset}
+                className="flex-1 text-sm bg-rose-500 text-white px-3 py-2 rounded-lg disabled:opacity-50 hover:bg-rose-600 transition"
+              >
+                {isResetting ? "Resetting..." : "Confirm Reset"}
+              </button>
+            </div>
+          </Modal>
         )}
       </div>
     </Layout>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  green,
+  red,
+}: {
+  label: string;
+  value: number;
+  green?: boolean;
+  red?: boolean;
+}) {
+  return (
+    <div className="bg-white border p-4 sm:p-5 rounded-2xl w-full">
+      <p className="text-xs text-slate-400">{label}</p>
+      <p
+        className={`text-2xl font-bold mt-1 ${
+          green ? "text-green-600" : red ? "text-red-600" : "text-slate-800"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function Modal({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50 px-4">
+      <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm">
+        {children}
+      </div>
+    </div>
   );
 }
