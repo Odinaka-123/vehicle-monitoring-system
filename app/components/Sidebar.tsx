@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   LayoutDashboard,
   Car,
@@ -9,9 +9,9 @@ import {
   AlertTriangle,
   Settings,
   X,
+  LogOutIcon,
 } from "lucide-react";
 
-// 1. Define the Props interface
 interface SidebarProps {
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -19,6 +19,18 @@ interface SidebarProps {
 
 export default function Sidebar({ open, setOpen }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter(); // ✅ needed for navigation
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const confirmLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      localStorage.removeItem("user");
+      window.location.href = "/";
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
+  };
 
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -26,11 +38,16 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
     { name: "Gate Access", icon: ShieldCheck, path: "/gate-access" },
     { name: "Incidents", icon: AlertTriangle, path: "/incidents" },
     { name: "Admin", icon: Settings, path: "/admin" },
+    {
+      name: "Logout",
+      icon: LogOutIcon,
+      action: () => setShowLogoutModal(true),
+    },
   ];
 
   return (
     <>
-      {/* Overlay (mobile) */}
+      {/* Overlay */}
       {open && (
         <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
@@ -47,11 +64,9 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
         {/* Header */}
         <div className="flex items-center justify-between mb-10">
           <h1 className="text-2xl font-bold text-white tracking-tight">VMS</h1>
-
-          {/* Close (mobile) */}
-          <button 
-            className="md:hidden p-1 hover:bg-slate-800 rounded-lg transition-colors" 
-            onClick={() => setOpen(false)} 
+          <button
+            className="md:hidden p-1 hover:bg-slate-800 rounded-lg transition-colors"
+            onClick={() => setOpen(false)}
             aria-label="close"
           >
             <X size={22} />
@@ -66,26 +81,30 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
 
             return (
               <li key={index}>
-                <Link
-                  href={item.path}
-                  onClick={() => setOpen(false)}
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 group
-                  ${
-                    isActive
-                      ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20"
-                      : "hover:bg-slate-800 hover:text-white"
-                  }`}
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    if (item.action) {
+                      item.action(); // logout modal
+                    } else if (item.path) {
+                      router.push(item.path); // navigate for links
+                    }
+                  }}
+                  className={`flex items-center gap-3 p-3 w-full text-left rounded-xl transition-all duration-200 group
+                    ${
+                      isActive
+                        ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20"
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
                 >
                   <Icon
                     size={20}
                     className={`transition ${
-                      isActive
-                        ? "text-white"
-                        : "text-gray-400 group-hover:text-blue-400"
+                      isActive ? "text-white" : "text-gray-400 group-hover:text-blue-400"
                     }`}
                   />
                   <span className="text-sm font-medium">{item.name}</span>
-                </Link>
+                </button>
               </li>
             );
           })}
@@ -98,6 +117,33 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
           </p>
         </div>
       </div>
+
+      {/* Logout Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
+            <LogOutIcon size={40} className="mx-auto text-red-600 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Logout?</h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to logout?
+            </p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={confirmLogout}
+                className="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700 transition"
+              >
+                Logout
+              </button>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg font-semibold hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
