@@ -49,31 +49,30 @@ export default function GateAccess() {
   >("daily");
 
   const handleCheck = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    try {
-      const res = await fetch("/api/check-vehicle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plate_number: plate }),
-      });
-      const data: Incident = await res.json();
-      setResult(data);
-      setPlate("");
-    } catch (err) {
-      console.error("Gate check failed:", err);
-      setResult({
-        id: 0,
-        plate_number: plate || "N/A",
-        timestamp: new Date().toISOString(),
-        status: "denied",
-        message: "Server error. Try again.",
-      });
-    }
+  try {
+    const res = await fetch("/api/check-vehicle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plate_number: plate }),
+    });
+    const data: Incident = await res.json();
+    setResult(data);
+    setPlate("");
 
-    setLoading(false);
-  };
+    // ✅ REFRESH INCIDENTS
+    const incRes = await fetch("/api/incidents?limit=5");
+    const incData: Incident[] = await incRes.json();
+    setRecent(incData);
+
+  } catch (err) {
+    console.error(err);
+  }
+
+  setLoading(false);
+};
 
   useEffect(() => {
     const fetchRecentAndChart = async () => {

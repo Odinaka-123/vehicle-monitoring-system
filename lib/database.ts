@@ -24,5 +24,7 @@ db.prepare(`
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `).run();
+console.log("Vehicles:", db.prepare("SELECT * FROM vehicles").all());
+console.log("Incidents:", db.prepare("SELECT * FROM incidents").all());
 
 export default db;
