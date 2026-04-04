@@ -53,7 +53,7 @@ export default function GateAccess() {
   setLoading(true);
 
   try {
-    const res = await fetch("/api/check-vehicle", {
+    const res = await fetch("/api/check", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plate_number: plate }),

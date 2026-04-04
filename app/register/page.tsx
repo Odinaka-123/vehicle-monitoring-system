@@ -43,7 +43,6 @@ export default function RegisterVehicle() {
         body: JSON.stringify(vehicle),
       });
       setSuccessOpen(true);
-      // Reset form
       setOwner("");
       setPlate("");
       setDepartment("");
@@ -61,8 +60,12 @@ export default function RegisterVehicle() {
     <Layout>
       <div className="max-w-xl mx-auto px-4 py-8">
         <header className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Register New Vehicle</h1>
-          <p className="text-slate-500 text-sm">Add a vehicle to the authorized monitoring system.</p>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+            Register New Vehicle
+          </h1>
+          <p className="text-slate-500 text-sm">
+            Add a vehicle to the authorized monitoring system.
+          </p>
         </header>
 
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8">
@@ -138,17 +141,26 @@ export default function RegisterVehicle() {
                         <ChevronDown className="w-4 h-4 text-slate-400" />
                       </span>
                     </Listbox.Button>
-                    <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
+                    <Transition
+                      as={Fragment}
+                      leave="transition ease-in duration-100"
+                      leaveFrom="opacity-100"
+                      leaveTo="opacity-0"
+                    >
                       <Listbox.Options className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white py-1 shadow-xl border border-slate-100 ring-1 ring-black ring-opacity-5 outline-none text-sm">
                         {vehicleTypes.map((v, idx) => (
                           <Listbox.Option
                             key={idx}
-                            className={({ active }) => `relative cursor-pointer select-none py-2 pl-10 pr-4 ${active ? "bg-blue-50 text-blue-700" : "text-slate-700"}`}
+                            className={({ active }) =>
+                              `relative cursor-pointer select-none py-2 pl-10 pr-4 ${active ? "bg-blue-50 text-blue-700" : "text-slate-700"}`
+                            }
                             value={v}
                           >
                             {({ selected }) => (
                               <>
-                                <span className={`flex items-center truncate ${selected ? "font-bold" : "font-normal"}`}>
+                                <span
+                                  className={`flex items-center truncate ${selected ? "font-bold" : "font-normal"}`}
+                                >
                                   {v.icon} {v.name}
                                 </span>
                                 {selected && (
@@ -192,15 +204,18 @@ export default function RegisterVehicle() {
         </div>
       </div>
 
-      {/* Success Modal */}
       {successOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-8 text-center animate-in fade-in zoom-in duration-200">
             <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-emerald-50 mb-4">
               <CheckCircle2 className="h-6 w-6 text-emerald-600" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 mb-1">Registration Successful</h3>
-            <p className="text-sm text-slate-500 mb-6">The vehicle has been added to the monitoring system.</p>
+            <h3 className="text-lg font-bold text-slate-900 mb-1">
+              Registration Successful
+            </h3>
+            <p className="text-sm text-slate-500 mb-6">
+              The vehicle has been added to the monitoring system.
+            </p>
             <button
               onClick={() => setSuccessOpen(false)}
               className="w-full px-4 py-2.5 text-xs font-bold uppercase tracking-widest rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
