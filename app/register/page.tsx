@@ -2,7 +2,7 @@
 import React, { useState, Fragment } from "react";
 import Layout from "@/app/components/Layout";
 import { Listbox, Transition } from "@headlessui/react";
-import { Check, ChevronDown, Car, Bike, Bus, CheckCircle2 } from "lucide-react";
+import { Check, ChevronDown, Car, Bike, Bus, CheckCircle2, AlertCircle } from "lucide-react";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 
@@ -21,10 +21,12 @@ export default function RegisterVehicle() {
   const [color, setColor] = useState("");
   const [loading, setLoading] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     const vehicle = {
       owner_name: owner,
@@ -37,11 +39,19 @@ export default function RegisterVehicle() {
     };
 
     try {
-      await fetch("/api/vehicles", {
+      const res = await fetch("/api/vehicles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(vehicle),
       });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Something went wrong. Please try again.");
+        return;
+      }
+
       setSuccessOpen(true);
       setOwner("");
       setPlate("");
@@ -49,8 +59,8 @@ export default function RegisterVehicle() {
       setPhone("");
       setType(vehicleTypes[0]);
       setColor("");
-    } catch (error) {
-      console.error("Registration failed", error);
+    } catch {
+      setError("Network error. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -70,6 +80,15 @@ export default function RegisterVehicle() {
 
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8">
           <form className="space-y-4" onSubmit={handleSubmit}>
+
+            {/* Error Banner */}
+            {error && (
+              <div className="flex items-start gap-3 text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <label className="block mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -93,8 +112,13 @@ export default function RegisterVehicle() {
                   type="text"
                   placeholder="ABC-1234"
                   value={plate}
-                  onChange={(e) => setPlate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-sm font-mono text-slate-700 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition"
+                  onChange={(e) => {
+                    setPlate(e.target.value);
+                    if (error) setError(null); // clear error on edit
+                  }}
+                  className={`w-full bg-slate-50 border p-2.5 rounded-xl text-sm font-mono text-slate-700 focus:ring-2 focus:ring-blue-500/10 outline-none transition ${
+                    error ? "border-rose-400 focus:border-rose-400" : "border-slate-200 focus:border-blue-500"
+                  }`}
                   required
                 />
               </div>
