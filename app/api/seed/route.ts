@@ -7,6 +7,9 @@ export async function GET() {
     return NextResponse.json({ success: true, message: "Database seeded" });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ success: false }, { status: 500 });
+    return NextResponse.json({ 
+      success: false, 
+      error: err instanceof Error ? err.message : String(err)
+    }, { status: 500 });
   }
 }
