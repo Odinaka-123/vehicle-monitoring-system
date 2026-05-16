@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
-import db from "@/lib/database";
+import db, { initDB } from "@/lib/database";
 
 export async function GET() {
   try {
-    const rows = db.prepare(`
+    await initDB();
+
+    const result = await db.execute(`
       SELECT status, COUNT(*) as count
       FROM vehicles
       GROUP BY status
-    `).all() as { status: string; count: number }[];
+    `);
 
-    return NextResponse.json(rows);
-  } catch (error) {
-    console.error(error);
+    return NextResponse.json(result.rows);
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ success: false }, { status: 500 });
   }
 }

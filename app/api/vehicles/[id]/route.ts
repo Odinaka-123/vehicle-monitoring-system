@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server";
-import db from "@/lib/database";
+import db, { initDB } from "@/lib/database";
 
 export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await initDB();
+
     const { id } = await params;
-    db.prepare("DELETE FROM vehicles WHERE id = ?").run(id);
+
+    await db.execute({
+      sql: "DELETE FROM vehicles WHERE id = ?",
+      args: [id],
+    });
+
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ success: false }, { status: 500 });
   }
 }

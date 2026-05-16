@@ -1,24 +1,38 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function middleware(req: NextRequest) {
-  const sessionCookie = req.cookies.get("session");
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/check",
+];
 
-  if (!sessionCookie) {
-    return NextResponse.redirect(new URL("/", req.url));
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
   }
 
-  const session = JSON.parse(sessionCookie.value);
+  const session = req.cookies.get("session");
 
-  const path = req.nextUrl.pathname;
+  if (!session?.value) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
 
-  if (path.startsWith("/admin") && session.role !== "admin") {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+  try {
+    const parsed = JSON.parse(session.value);
+    if (!parsed?.id || !parsed?.role) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+  } catch {
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*", "/incidents/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

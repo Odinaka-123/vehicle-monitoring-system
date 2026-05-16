@@ -1,18 +1,33 @@
 import { NextResponse } from "next/server";
-import db from "@/lib/database";
+import db, { initDB } from "@/lib/database";
 
 export async function GET() {
-  const users = db
-    .prepare("SELECT id, username, role FROM users")
-    .all();
+  try {
+    await initDB();
 
-  return NextResponse.json(users);
+    const result = await db.execute("SELECT id, username, role FROM users");
+
+    return NextResponse.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ success: false }, { status: 500 });
+  }
 }
 
 export async function DELETE(req: Request) {
-  const { id } = await req.json();
+  try {
+    await initDB();
 
-  db.prepare("DELETE FROM users WHERE id = ?").run(id);
+    const { id } = await req.json();
 
-  return NextResponse.json({ success: true });
+    await db.execute({
+      sql: "DELETE FROM users WHERE id = ?",
+      args: [id],
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ success: false }, { status: 500 });
+  }
 }

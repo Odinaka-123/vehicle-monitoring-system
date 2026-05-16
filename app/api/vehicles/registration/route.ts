@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import db from "@/lib/database";
+import db, { initDB } from "@/lib/database";
 
 export async function PUT(req: Request) {
   try {
+    await initDB();
+
     const { plate_number, registrationStatus } = await req.json();
 
     if (!plate_number || !["granted", "denied"].includes(registrationStatus)) {
@@ -14,27 +16,27 @@ export async function PUT(req: Request) {
 
     const plate_clean = plate_number.trim().toUpperCase();
 
-    // Check vehicle exists
-    const vehicle = db
-      .prepare("SELECT * FROM vehicles WHERE UPPER(plate_number) = ?")
-      .get(plate_clean);
+    const vehicle = await db.execute({
+      sql: "SELECT * FROM vehicles WHERE UPPER(plate_number) = ?",
+      args: [plate_clean],
+    });
 
-    if (!vehicle) {
+    if (vehicle.rows.length === 0) {
       return NextResponse.json(
         { success: false, error: "Vehicle not found" },
         { status: 404 }
       );
     }
 
-    // Update registration_status
-    db.prepare(
-      "UPDATE vehicles SET registration_status = ? WHERE UPPER(plate_number) = ?"
-    ).run(registrationStatus, plate_clean);
+    await db.execute({
+      sql: "UPDATE vehicles SET registration_status = ? WHERE UPPER(plate_number) = ?",
+      args: [registrationStatus, plate_clean],
+    });
 
-    // Optional: log incident
-    db.prepare(
-      "INSERT INTO incidents (plate_number, status, timestamp) VALUES (?, ?, ?)"
-    ).run(plate_clean, registrationStatus, new Date().toISOString());
+    await db.execute({
+      sql: "INSERT INTO incidents (plate_number, status, timestamp) VALUES (?, ?, ?)",
+      args: [plate_clean, registrationStatus, new Date().toISOString()],
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

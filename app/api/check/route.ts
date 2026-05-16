@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import db from "@/lib/database";
+import db, { initDB } from "@/lib/database";
 
-// 1. Define the Vehicle structure
 interface Vehicle {
   id: number;
   plate_number: string;
@@ -14,57 +13,62 @@ interface Vehicle {
 }
 
 export async function POST(req: Request) {
-  const { plate_number } = await req.json();
+  try {
+    await initDB();
 
-  if (!plate_number) {
-    return NextResponse.json(
-      { status: "denied", message: "Plate number required" },
-      { status: 400 }
-    );
-  }
+    const { plate_number } = await req.json();
 
-  const plate_clean = plate_number.trim().toUpperCase();
-
-  // 2. Cast the result to Vehicle or undefined
-  const vehicle = db
-    .prepare("SELECT * FROM vehicles WHERE UPPER(plate_number) = ?")
-    .get(plate_clean) as Vehicle | undefined;
-
-  let status: "granted" | "denied" = "denied";
-  let message = "";
-
-  if (!vehicle) {
-    message = "Vehicle not registered";
-  } else {
-    // 3. TypeScript now knows exactly what vehicle.status can be
-    switch (vehicle.status) {
-      case "active":
-        status = "granted";
-        break;
-
-      case "inactive":
-        status = "denied";
-        message = "Vehicle inactive";
-        break;
-
-      case "blacklisted":
-        status = "denied";
-        message = "🚫 Vehicle blacklisted";
-        break;
-
-      default:
-        message = "Access denied";
+    if (!plate_number) {
+      return NextResponse.json(
+        { status: "denied", message: "Plate number required" },
+        { status: 400 }
+      );
     }
+
+    const plate_clean = plate_number.trim().toUpperCase();
+
+    const result = await db.execute({
+      sql: "SELECT * FROM vehicles WHERE UPPER(plate_number) = ?",
+      args: [plate_clean],
+    });
+
+    const vehicle = result.rows[0] as unknown as Vehicle | undefined;
+
+    let status: "granted" | "denied" = "denied";
+    let message = "";
+
+    if (!vehicle) {
+      message = "Vehicle not registered";
+    } else {
+      switch (vehicle.status) {
+        case "active":
+          status = "granted";
+          break;
+        case "inactive":
+          status = "denied";
+          message = "Vehicle inactive";
+          break;
+        case "blacklisted":
+          status = "denied";
+          message = "🚫 Vehicle blacklisted";
+          break;
+        default:
+          message = "Access denied";
+      }
+    }
+
+    await db.execute({
+      sql: "INSERT INTO incidents (plate_number, status, timestamp) VALUES (?, ?, ?)",
+      args: [plate_clean, status, new Date().toISOString()],
+    });
+
+    return NextResponse.json({
+      status,
+      vehicle: vehicle || null,
+      message,
+    });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ success: false }, { status: 500 });
   }
-
-  // ✅ Always log incident
-  db.prepare(
-    "INSERT INTO incidents (plate_number, status, timestamp) VALUES (?, ?, ?)"
-  ).run(plate_clean, status, new Date().toISOString());
-
-  return NextResponse.json({
-    status,
-    vehicle: vehicle || null,
-    message,
-  });
 }

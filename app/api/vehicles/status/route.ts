@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import db from "@/lib/database";
+import db, { initDB } from "@/lib/database";
 
 export async function PUT(req: Request) {
   try {
+    await initDB();
+
     const { plate_number, status } = await req.json();
 
     if (!plate_number || !["active", "inactive", "blacklisted"].includes(status)) {
@@ -11,11 +13,10 @@ export async function PUT(req: Request) {
 
     const plate = plate_number.trim().toUpperCase();
 
-    db.prepare(`
-      UPDATE vehicles 
-      SET status = ? 
-      WHERE UPPER(plate_number) = ?
-    `).run(status, plate);
+    await db.execute({
+      sql: "UPDATE vehicles SET status = ? WHERE UPPER(plate_number) = ?",
+      args: [status, plate],
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -1,47 +1,39 @@
 import { NextResponse } from "next/server";
-import db from "@/lib/database";
+import db, { initDB } from "@/lib/database";
 
 export async function GET() {
   try {
-    // Total vehicles
-    const totalVehicles = db
-      .prepare("SELECT COUNT(*) as count FROM vehicles")
-      .get() as { count: number };
+    await initDB();
 
-    // Vehicles currently "inside" (granted today)
-    const vehiclesInside = db
-      .prepare(`
-        SELECT COUNT(*) as count 
-        FROM incidents 
-        WHERE status = 'granted' 
-        AND DATE(timestamp) = DATE('now')
-      `)
-      .get() as { count: number };
+    const totalVehicles = await db.execute(
+      "SELECT COUNT(*) as count FROM vehicles"
+    );
 
-    // Incidents today
-    const incidentsToday = db
-      .prepare(`
-        SELECT COUNT(*) as count 
-        FROM incidents 
-        WHERE DATE(timestamp) = DATE('now')
-      `)
-      .get() as { count: number };
+    const vehiclesInside = await db.execute(`
+      SELECT COUNT(*) as count 
+      FROM incidents 
+      WHERE status = 'granted' 
+      AND DATE(timestamp) = DATE('now')
+    `);
 
-    // Denied today
-    const deniedToday = db
-      .prepare(`
-        SELECT COUNT(*) as count 
-        FROM incidents 
-        WHERE status = 'denied'
-        AND DATE(timestamp) = DATE('now')
-      `)
-      .get() as { count: number };
+    const incidentsToday = await db.execute(`
+      SELECT COUNT(*) as count 
+      FROM incidents 
+      WHERE DATE(timestamp) = DATE('now')
+    `);
+
+    const deniedToday = await db.execute(`
+      SELECT COUNT(*) as count 
+      FROM incidents 
+      WHERE status = 'denied'
+      AND DATE(timestamp) = DATE('now')
+    `);
 
     return NextResponse.json({
-      totalVehicles: totalVehicles.count,
-      vehiclesInside: vehiclesInside.count,
-      incidentsToday: incidentsToday.count,
-      deniedToday: deniedToday.count,
+      totalVehicles: totalVehicles.rows[0].count,
+      vehiclesInside: vehiclesInside.rows[0].count,
+      incidentsToday: incidentsToday.rows[0].count,
+      deniedToday: deniedToday.rows[0].count,
     });
   } catch (error) {
     console.error(error);

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import db from "@/lib/database";
+import db, { initDB } from "@/lib/database";
 
-// 1. Define the shape of the database row
 interface IncidentRow {
   id: number;
   plate_number: string;
@@ -18,8 +17,9 @@ interface IncidentRow {
 
 export async function GET() {
   try {
-    // 2. Cast the .all() result to your interface array
-    const rows = db.prepare(`
+    await initDB();
+
+    const result = await db.execute(`
       SELECT 
         incidents.id as id,
         incidents.plate_number,
@@ -36,7 +36,9 @@ export async function GET() {
       LEFT JOIN vehicles 
         ON vehicles.plate_number = incidents.plate_number
       ORDER BY incidents.timestamp DESC
-    `).all() as IncidentRow[];
+    `);
+
+    const rows = result.rows as unknown as IncidentRow[];
 
     const data = rows.map((r) => ({
       id: r.id,
